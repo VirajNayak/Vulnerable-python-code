@@ -1,0 +1,82 @@
+# This workflow uses actions that are not certified by GitHub.
+# They are provided by a third-party and are governed by
+# separate terms of service, privacy policy, and support
+# documentation.
+
+# Bandit is a security linter designed to find common security issues in Python code.
+# This action will run Bandit on your codebase.
+# The results of the scan will be found under the Security tab of your repository.
+
+# https://github.com/marketplace/actions/bandit-scan is ISC licensed, by abirismyname
+# https://pypi.org/project/bandit/ is Apache v2.0 licensed, by PyCQA
+
+name: Bandit
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    # The branches below must be a subset of the branches above
+    branches: [ "main" ]
+
+jobs:
+  bandit:
+    permissions:
+      contents: read # for actions/checkout to fetch code
+      security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
+      actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.x'
+
+    - name: Install Bandit
+      run: pip install bandit
+      
+    - name: Run Bandit
+      id: bandit_scan
+      run: |
+        echo "Running Bandit..."
+        bandit -r . -f json -o bandit_output.json || true
+        cat "bandit_output.json"
+        echo "Bandit scan completed."
+        ls -al
+        
+    - name: Analyze Bandit Results
+      id: analyze_results
+      run: |
+        echo "---"
+        ls
+        echo "--"
+        ls
+        CRITICAL_ISSUES=$(jq '[.results[] | select(.issue_severity=="CRITICAL") ] | length' bandit_output.json)
+        HIGH_ISSUES=$(jq '[.results[] | select(.issue_severity=="HIGH") ] | length' bandit_output.json)
+        echo "Critical Issues: $CRITICAL_ISSUES"
+        echo "High Issues: $HIGH_ISSUES"
+        
+        if [ "$CRITICAL_ISSUES" -gt 0 ] || [ "$HIGH_ISSUES" -gt 0 ]; then
+          echo "status=block" >> $GITHUB_ENV
+        else
+          echo "status=success" >> $GITHUB_ENV
+        fi
+    - name: Add Comment and Block PR
+      if: env.status == 'block'
+      run: |
+        gh pr comment ${{ github.event.pull_request.number }} --body 'Block'
+        gh pr close ${{ github.event.pull_request.number }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Add Comment and Merge PR
+      if: env.status == 'success'
+      run: |
+        gh pr comment ${{ github.event.pull_request.number }} --body 'Successful'
+        gh pr merge ${{ github.event.pull_request.number }} --merge
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
