@@ -38,6 +38,14 @@ jobs:
 
     - name: Install Bandit
       run: pip install bandit
+
+    - name: Install GitHub CLI
+      run: sudo apt-get install gh
+
+    - name: Authenticate GitHub CLI
+      run: gh auth login --with-token < $GITHUB_TOKEN
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
     - name: Run Bandit
       id: bandit_scan
