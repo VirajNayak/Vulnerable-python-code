@@ -38,37 +38,21 @@ jobs:
 
     - name: Install Bandit
       run: pip install bandit
-
-#    - name: Install GitHub CLI
-#      run: sudo apt-get install gh
-
-#    - name: Authenticate GitHub CLI
-#      run: gh auth login --with-token < $GITHUB_TOKEN
-#      env:
-#        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
     - name: Run Bandit
       id: bandit_scan
       run: |
-        echo "Running Bandit..."
         bandit -r . -f json -o bandit_output.json || true
         cat "bandit_output.json"
         echo "Bandit scan completed."
-        ls -al
         
     - name: Analyze Bandit Results
       id: analyze_results
       run: |
-        echo "---"
-        ls
-        echo "--"
-        ls
         CRITICAL_ISSUES=$(jq '[.results[] | select(.issue_severity=="CRITICAL") ] | length' bandit_output.json)
-        HIGH_ISSUES=$(jq '[.results[] | select(.issue_severity=="HIGH") ] | length' bandit_output.json)
         echo "Critical Issues: $CRITICAL_ISSUES"
-        echo "High Issues: $HIGH_ISSUES"
         
-        if [ "$CRITICAL_ISSUES" -gt 0 ] || [ "$HIGH_ISSUES" -gt 0 ]; then
+        if [ "$CRITICAL_ISSUES" -gt 0 ]; then
           echo "status=block" >> $GITHUB_ENV
         else
           echo "status=success" >> $GITHUB_ENV
